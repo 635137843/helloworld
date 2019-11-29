@@ -1,0 +1,77 @@
+﻿<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8" />
+    <title>业务管理系统</title>
+
+    <link href="../assets/css/bootstrap.min.css" rel="stylesheet" />
+    <link rel="shortcut icon" href="../assets/images/favicon.png" type="image/x-icon">
+
+    <script src="../assets/js/jquery.min.js"></script>
+    <script src="../assets/js/bootstrap.min.js"></script>
+    <script src="../assets/js/vue.min.js"></script>
+    <script src="../assets/js/vx-easyui-min.js"></script>
+    <style>
+      html,body{
+            height: 100%;
+            width: 100%;
+            overflow: hidden;
+      }
+      iframe{
+          height: calc(100% - 70px);
+          width: calc(100% + 20px);
+      }
+      div.container {
+        height: 100%;
+      }
+      div.frame_parent {
+        width: 100%;
+        height: 100%;
+        overflow: hidden
+      }
+    </style>
+</head>
+<body>
+    <div class="container" >
+        
+
+      <nav class="navbar navbar-default navbar-inverse">
+        <div class="container-fluid">
+          
+          <div class="navbar-header">
+            <button type="button" class="navbar-toggle collapsed" data-toggle="collapse" data-target="#bs-example-navbar-collapse-1" aria-expanded="false">
+              <span class="sr-only">Toggle navigation</span>
+              <span class="icon-bar"></span>
+              <span class="icon-bar"></span>
+              <span class="icon-bar"></span>
+            </button>
+            <a class="navbar-brand" href="#"><img src="../assets/images/logo.png" height="100%"/></a>
+          </div>
+      
+        
+          <div class="collapse navbar-collapse" id="bs-example-navbar-collapse-1">
+           <ul class="nav navbar-nav navbar-right" id="ul">
+            <li role="presentation" class="active"><a href="site.html" target="mynav">站点管理</a></li>
+            <li role="presentation"><a href="line.html" target="mynav">线路管理</a></li>
+          </ul>
+          </div>
+        </div>
+      </nav>
+      <div class="frame_parent">
+          <iframe src="site.html" id="frame" name="mynav" frameborder="0"></iframe>
+      </div>
+    </div>
+
+    <script>
+        var oUl = $("#ul");
+        var oLis = $("#ul li");
+        oUl.on("click", 'li', function () {
+            oLis.each(function () {
+                this.className = ""
+            });
+            this.className = "active";
+        });
+    </script>  
+
+</body>
+</html>

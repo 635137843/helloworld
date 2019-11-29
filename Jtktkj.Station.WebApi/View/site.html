@@ -1,0 +1,283 @@
+<link href="../assets/css/bootstrap.min.css" rel="stylesheet" />
+<link href="../assets/css/site.css" rel="stylesheet" />
+
+<script src="../assets/js/jquery.min.js"></script>
+<script src="../assets/js/bootstrap.min.js"></script>
+<script src="../assets/js/vue.min.js"></script>
+<script type="text/javascript" src="http://api.map.baidu.com/api?v=2.0&ak=Vo0xWmx3doYIMfk77qdMYjSIUe6LuM0y"></script>
+<style>
+    .modal-backdrop {
+        filter: alpha(opacity=0)!important;
+        opacity: 0!important;
+    };
+    #siteModal {
+        background-color: white
+    }
+</style>
+
+<div class="container-fluid" id="site">
+    <div class="row">
+        <form class="form-inline">
+            <div class="input-group col-md-4">
+                <input type="text" class="form-control" v-model="seaKey" placeholder="站点编码/名称">
+                <span class="input-group-addon btn" v-on:click="getSiteByKey"><i class="glyphicon glyphicon-search"></i></span>
+            </div>
+        </form>
+    </div>
+
+    <div class="row">
+        <span class="btn btn-link addSiteBtn" v-on:click="getSiteToModel('add')">新增</span>
+
+        <table id="siteTab" class="table table-hover">
+            <thead> 
+                <tr>
+                    <th class="text-center">编码</th>
+                    <th class="text-center">名称</th>
+                    <th class="text-center">位置(经度，纬度)</th>
+                    <th class="text-center">位置描述</th>
+                    <th class="text-center">备注</th>
+                    <th class="text-center">操作</th>
+                </tr>
+            </thead>
+
+            <tbody>
+                <tr class="text-center" v-for="site in sites">
+                    <td class="col-md-2">{{site.code}}</td>
+                    <td class="col-md-2">{{site.name}}</td>
+                    <td class="col-md-2">({{site.lng}},{{site.lat}})</td>
+                    <!-- <td class="col-md-2">{{site.position}}</td> -->
+                    <td class="col-md-2">{{site.describe}}</td>
+                    <td class="col-md-2">{{site.remarks}}</td>
+                    <td class="col-md-2">
+                        <span class="btn btn-link editSiteBtn" v-on:click="getSiteToModel('edit',site.id)">修改</span>
+                        <span class="btn btn-link delSiteBtn" v-on:click="delSite(site.id)">删除</span>
+                    </td>
+                </tr>
+            </tbody>
+
+        </table>
+    </div>
+
+
+    <div id="siteModal" class="modal"  tabindex="-1">
+            <div class="modal-dialog modal-lg" role="document">
+              <div class="modal-content container">
+                  <div class="modal-header">
+                      <button type="button" class="close" data-dismiss="modal" aria-label="Close"><span aria-hidden="true">&times;</span></button>
+                      <h4 class="modal-title">{{siteModalTitle}}</h4>
+                  </div>
+                  <div class="row">
+                      <div class="col-md-6">
+                              <form class="form-horizontal text-center" v-on:submit.prevent="sumForm" style="font-size: 13px">
+                                  <div class="form-group">
+                                      <label class="col-sm-2 control-label">编码</label>
+                                      <div class="col-sm-10">
+                                          <input type="text" v-model="tmpSite.code" class="form-control">
+                                      </div>
+                                  </div>
+                                  <div class="form-group">
+                                      <label class="col-sm-2 control-label">名称</label>
+                                      <div class="col-sm-10">
+                                              <input type="text" v-model="tmpSite.name" class="form-control">
+                                      </div>
+                                  </div>
+                                  <div class="form-group">
+                                      <label class="col-sm-2 control-label">经度</label>
+                                      <div class="col-sm-4">
+                                          <input type="text" v-model="tmpSite.lng" class="form-control">
+                                      </div>
+                                      <label class="col-sm-2 control-label">纬度</label>
+                                      <div class="col-sm-4">
+                                          <input type="text" v-model="tmpSite.lat" class="form-control">
+                                      </div>
+                                  </div>
+                                  <div class="form-group">
+                                      <label class="col-sm-2 control-label">描述</label>
+                                      <div class="col-sm-10">
+                                          <input type="text" v-model="tmpSite.describe" class="form-control">
+                                      </div>
+                                  </div>
+                                  <div class="form-group">
+                                      <label class="col-sm-2 control-label">备注</label>
+                                      <div class="col-sm-10">
+                                              <input type="text" v-model="tmpSite.remarks" class="form-control">
+                                      </div>
+                                  </div>
+                                  <div class="form-group">
+                                      <div class="col-sm-offset-2 col-sm-10">
+                                      <button type="submit" class="btn btn-default">确定</button>
+                                      </div>
+                                  </div>
+                              </form>
+                      </div>
+                      <div class="col-md-6" id="allmap" style="min-height: 300px">
+                          
+                      </div>
+                  </div>
+              </div>
+            </div>
+          </div>
+</div>
+
+
+<script>
+    
+    
+
+    var siteVue = new Vue({
+        el: '#site',
+        data: {
+            siteModalTitle:'',
+            flag: "",
+            tmpSite:{},
+            seaKey:'',
+            sites: []
+        },
+        methods:{
+            _getMapData(){
+                //初始化地图
+                var map = new BMap.Map("allmap");      
+                map.enableScrollWheelZoom();
+                map.enableContinuousZoom(); 
+                map.centerAndZoom("重庆",12); 
+                map.setDefaultCursor("url('bird.cur')");
+                window.map = map;
+                map.addEventListener("click",function(e){
+                    //清除标记点
+                    map.clearOverlays();
+
+                    //标记点击坐标位置
+                    var point = new BMap.Point(e.point.lng, e.point.lat);
+                    var marker = new BMap.Marker(point);
+                    map.addOverlay(marker);
+
+                    Vue.set(siteVue.tmpSite,"lng",e.point.lng);
+                    Vue.set(siteVue.tmpSite,"lat",e.point.lat);
+                });
+            },
+            //获取所有站点
+            getAllSites() {
+                var _this = this;
+                 $.getJSON("/api/Site/getAllSites",function(data,err){
+                     if (data) {
+                         console.log(data);
+                         _this.sites = data ;
+                     }else {
+                         alert("获取站点数据失败");
+                     }
+                 });
+            },
+            //根据站点编码/名称进行模糊查询
+            getSiteByKey() {
+                var _this = this;
+                $.ajax({
+                    url: "/api/Site/getSiteByKey",
+                    type: "get",
+                    data: { key: this.seaKey},
+                     dataType:"json",
+                     success: function (data) {
+                         console.log(data);
+                         if(data){
+                             _this.sites = data ;
+                         }else {
+                             alert("查询站点失败");
+                         }
+                     },
+                     error:function(){
+                         alert("发生错误");
+                     }
+                 });
+            },
+            //获取站点数据 写入修改模态框
+            getSiteToModel(flag,id){
+                window.map.clearOverlays();
+                console.log(flag);
+                this.flag = flag;
+                var _this = this;
+                if(flag==="add"){
+                    this.siteModalTitle = "新增站点" ;
+                    this.tmpSite={};
+                    $('#siteModal').modal('show');
+                }else{
+                    this.siteModalTitle = "修改站点" ;
+                    $('#siteModal').modal('show');
+                     $.ajax({
+                         url:"/api/Site/getSiteById/"+id,
+                         type: "get",
+                         dataType:"json",
+                         success: function (data) {
+                             _this.tmpSite = data;
+                             //标记点击坐标位置
+                             var point = new BMap.Point(_this.tmpSite.lng, _this.tmpSite.lat);
+                             var marker = new BMap.Marker(point);
+
+                             window.map.addOverlay(marker);
+                             $('#siteModal').modal('show');
+                         },
+                         error:function(){
+                             alert("发生错误");
+                         }
+                     });
+                }
+            },
+            //删除站点
+            delSite(id) {
+                var _this = this;
+                 $.ajax({
+                     url:"/api/Site/delSiteById/"+id,
+                     type: "post",
+                     dataType:"json",
+                     success: function (data) {
+                         if(data){
+                             alert("删除站点成功");
+                             _this.getAllSites();
+                         }else {
+                             alert("删除站点失败");
+                         }
+                     },
+                     error:function(){
+                         alert("发生错误");
+                     }
+                 });
+            },
+            //新增/修改站点数据
+            sumForm(){
+                var url = "";
+                var _this = this;
+                if (this.flag === "add") {
+                    console.log(this.tmpSite);
+                    url = "/api/Site/addSite" ;
+                }else if(this.flag==="edit"){
+                    url = "/api/Site/editSite" ;
+                }
+                 $.ajax({
+                     url:url,
+                     type: "post",
+                     data:this.tmpSite,
+                     dataType:"json",
+                     success: function (data) {
+                         console.log(data);
+                         if(data){
+                             $('#siteModal').modal('hide');
+                             _this.getAllSites();
+                             if(_this.flag==="add"){
+                                 alert("添加站点成功");
+                             }else if(_this.flag==="edit"){
+                                 alert("修改站点成功");
+                             }
+                         }else{
+                             alert("操作失败");
+                         }
+                     },
+                     error:function(){
+                         alert("发生错误");
+                     }
+                 });
+            }
+        },
+        mounted () {
+            this._getMapData();
+            this.getAllSites();
+        }
+    });
+</script>

@@ -1,0 +1,594 @@
+<link href="../assets/css/bootstrap.min.css" rel="stylesheet" />
+<link href="../assets/css/site.css" rel="stylesheet" />
+
+<script src="../assets/js/jquery.min.js"></script>
+<script src="../assets/js/bootstrap.min.js"></script>
+<script src="../assets/js/vue.min.js"></script>
+<script src="../assets/js/vx-easyui-min.js"></script>
+<script type="text/javascript" src="http://api.map.baidu.com/api?v=2.0&ak=Vo0xWmx3doYIMfk77qdMYjSIUe6LuM0y"></script>
+<style>
+    .modal-backdrop {
+        filter: alpha(opacity=0) !important;
+        opacity: 0 !important;
+    }
+
+    #siteModal {
+        background-color: white
+    }
+
+    #editSiteModal .row {
+        height: 360px;
+    }
+
+    #showLineModal table .btn {
+        padding: 0 12px;
+    }
+</style>
+
+<div class="container-fluid" id="line">
+    <div class="row">
+        <form class="form-inline">
+            <div class="input-group col-md-4">
+                <input type="text" class="form-control" v-model="seaKey" placeholder="线路编码/名称">
+                <span class="input-group-addon btn" v-on:click="getLineByKey"><i class="glyphicon glyphicon-search"></i></span>
+            </div>
+        </form>
+    </div>
+
+    <div class="row">
+        <span class="btn btn-link" v-on:click="getLineToModel('add')">新增</span>
+        <ComboBox inputId="c1" v-model="value" :data="sites"></ComboBox>
+        <table id="siteTab" class="table table-hover">
+            <thead>
+                <tr>
+                    <th class="text-center">编码</th>
+                    <th class="text-center">名称</th>
+                    <th class="text-center">备注</th>
+                    <th class="text-center">操作</th>
+                </tr>
+            </thead>
+
+            <tbody>
+                <tr class="text-center" v-for="(line,i) in lines">
+                    <td class="col-md-2">{{line.code}}</td>
+                    <td class="col-md-2">{{line.name}}</td>
+                    <td class="col-md-2">{{line.remarks}}</td>
+                    <td class="col-md-2">
+                        <span class="btn btn-link" v-on:click="getLineToModel('show',i)">查看</span>
+                        <span class="btn btn-link" v-on:click="getLineToModel('edit',i)">修改</span>
+                        <span class="btn btn-link" v-on:click="delLine(line.id)">删除</span>
+                    </td>
+                </tr>
+            </tbody>
+
+        </table>
+    </div>
+
+    <div id="showLineModal" class="modal" tabindex="-1">
+        <div class="modal-dialog modal-lg" role="document">
+            <div class="modal-content container">
+                <div class="modal-header">
+                    <button type="button" class="close" data-dismiss="modal" aria-label="Close"><span aria-hidden="true">&times;</span></button>
+                    <h4 class="modal-title">{{lineModalTitle}}</h4>
+                </div>
+                <div class="row">
+                    <div class="col-md-7" style="overflow:hidden;height: 360px;">
+                        <form class="form-inline" v-on:submit.prevent="addSite">
+                            <div class="form-group">
+                                <input type="text" v-model="tmpSite.stationName" class="form-control" style="width: 150px" placeholder="报站名">
+                            </div>
+                            <div class="form-group">
+                                <input type="text" v-model="tmpSite.no" class="form-control" style="width: 75px" placeholder="序号">
+                            </div>
+                            <div class="form-group">
+
+                                
+                                <select v-model="tmpSite.type" class="form-control">
+                                    <option value="-1">--类型--</option>
+                                    <option value="0">起点站</option>
+                                    <option value="1">终点站</option>
+                                    <option value="2">途径点</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <select v-model="tmpSite.index" class="form-control">
+                                    <option value="-1">--选择站点--</option>
+                                    <option v-for="(site,i) in sites" :value="i">{{site.name}}</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <input type="submit" class="btn btn-link" value="新增">
+                            </div>
+                        </form>
+                        <div style="overflow-y: auto;height: 270px;font-size: 12px">
+                            <table class="table table-hover">
+                                <thead>
+                                    <tr>
+                                        <th class="text-center">序号</th>
+                                        <th class="text-center">名称</th>
+                                        <th class="text-center">类型</th>
+                                        <th class="text-center">操作</th>
+                                    </tr>
+                                </thead>
+
+                                <tbody>
+                                    <tr class="text-center" v-if="tmpLine.start">
+                                        <td class="col-md-2">{{tmpLine.start.no}}</td>
+                                        <td class="col-md-2">{{tmpLine.start.name}}</td>
+                                        <td class="col-md-2">起点站</td>
+                                        <td class="col-md-4">
+                                            <span class="btn btn-link" v-on:click="openEditSite('start')">修改</span>
+                                            <span class="btn btn-link" v-on:click="delSite('tmpLine.start.id')">删除</span>
+                                        </td>
+                                    </tr>
+                                    <tr class="text-center" v-if="tmpLine.terminus">
+                                        <td class="col-md-2">{{tmpLine.terminus.no}}</td>
+                                        <td class="col-md-2">{{tmpLine.terminus.name}}</td>
+                                        <td class="col-md-2">终点站</td>
+                                        <td class="col-md-4">
+                                            <span class="btn btn-link" v-on:click="openEditSite('terminus')">修改</span>
+                                            <span class="btn btn-link" v-on:click="delSite('tmpLine.terminus.id')">删除</span>
+                                        </td>
+                                    </tr>
+                                    <tr class="text-center" v-for="(site,i) in lineStations">
+                                        <td class="col-md-2">{{site.no}}</td>
+                                        <td class="col-md-2">{{site.name}}</td>
+                                        <td class="col-md-2">途径点</td>
+                                        <td class="col-md-4">
+                                            <a class="btn btn-link" v-on:click="openEditSite(i)">修改</a>
+                                            <span class="btn btn-link" v-on:click="delSite(site.id)">删除</span>
+                                        </td>
+                                    </tr>
+                                </tbody>
+
+                            </table>
+                        </div>
+
+                    </div>
+                    <div class="col-md-5" id="lineMap" style="min-height: 360px">
+
+                    </div>
+                </div>
+
+            </div>
+        </div>
+    </div>
+
+    <div id="lineModal" class="modal" tabindex="-1">
+        <div class="modal-dialog modal-lg" role="document">
+            <div class="modal-content container">
+                <div class="modal-header">
+                    <button type="button" class="close" data-dismiss="modal" aria-label="Close"><span aria-hidden="true">&times;</span></button>
+                    <h4 class="modal-title">{{lineModalTitle}}</h4>
+                </div>
+                <div class="row">
+                    <form class="form-horizontal" v-on:submit.prevent="lineForm">
+                        <div class="form-group">
+                            <label class="col-md-2 control-label">编码</label>
+                            <div class="col-sm-10">
+                                <input type="text" v-model="tmpLine.code" class="form-control" placeholder="编码">
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label class="col-md-2 control-label">名称</label>
+                            <div class="col-sm-10">
+                                <input type="text" v-model="tmpLine.name" class="form-control" placeholder="名称">
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label class="col-md-2 control-label">备注</label>
+                            <div class="col-sm-10">
+                                <textarea v-model="tmpLine.remarks" class="form-control col-md-10" placeholder="备注" rows="3"></textarea>
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <div class="col-sm-offset-2 col-sm-10">
+                                <button type="submit" class="btn btn-primary">确认</button>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="editSiteModal" class="modal" tabindex="-1">
+        <div class="modal-dialog modal-lg" role="document">
+            <div class="modal-content container">
+                <div class="modal-header">
+                    <button type="button" class="close" data-dismiss="modal" aria-label="Close"><span aria-hidden="true">&times;</span></button>
+                    <h4 class="modal-title">修改站点</h4>
+                </div>
+                <div class="row">
+                    <form class="form-horizontal" v-on:submit.prevent="editSite">
+                        <div class="form-group">
+                            <label class="col-md-2 control-label">报站名</label>
+                            <div class="col-sm-10">
+                                <input type="text" v-model="tmpSite.stationName" class="form-control" placeholder="报站名">
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label class="col-md-2 control-label">序号</label>
+                            <div class="col-sm-10">
+                                <input type="text" v-model="tmpSite.no" class="form-control" placeholder="序号">
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label class="col-md-2 control-label">类型</label>
+                            <div class="col-sm-10">
+                                <select class="form-control" v-model="tmpSite.type">
+                                    <option value="-1">--类型--</option>
+                                    <option value="0">起点站</option>
+                                    <option value="1">终点站</option>
+                                    <option value="2">途径点</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label class="col-md-2 control-label">站点</label>
+                            <div class="col-sm-10">
+                                <select v-model="tmpSite.index" class="form-control">
+                                    <option value="-1">--选择站点--</option>
+                                    <option v-for="(site,i) in sites" :value="i">{{site.name}}</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <div class="col-sm-offset-2 col-sm-10">
+                                <button type="submit" class="btn btn-primary">确认</button>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+</div>
+
+<script>
+
+    var siteVue = new Vue({
+        el: '#line',
+        data: {
+            lineModalTitle: '',
+            flag: "",
+            value:11,
+            tmpSite: {},
+            items: [
+                { value: 11, text: "Mr. Nice" },
+                { value: 12, text: "Narco" },
+                { value: 13, text: "Bombasto" },
+                { value: 14, text: "Celeritas" },
+                { value: 15, text: "Magneta" },
+                { value: 16, text: "RubberMan" },
+                { value: 17, text: "Dynama" },
+                { value: 18, text: "Dr IQ" },
+                { value: 19, text: "Magma" },
+                { value: 20, text: "Tornado" }
+            ],
+            sites: [
+                { id: "", name: "111", lng: "106.555724", lat: "29.558927" },
+                { id: "", name: "222", lng: "106.554035", lat: "29.559964" },
+                { id: "", name: "333", lng: "106.55391", lat: "29.561237" },
+                { id: "", name: "444", lng: "106.556048", lat: "29.561818" }
+            ],
+            lineStations: [
+                { id: "", no: 0, name: "111", stationName: "1", lng: "106.555724", lat: "29.558927", type: "1" },
+                { id: "", no: 1, name: "222", stationName: "2", lng: "106.554035", lat: "29.559964", type: "1" },
+                { id: "", no: 2, name: "333", stationName: "3", lng: "106.55391", lat: "29.561237", type: "1" },
+                { id: "", no: 2, name: "333", stationName: "3", lng: "106.55391", lat: "29.561237", type: "1" },
+                { id: "", no: 2, name: "333", stationName: "3", lng: "106.55391", lat: "29.561237", type: "1" },
+                { id: "", no: 2, name: "333", stationName: "3", lng: "106.553921", lat: "29.561237", type: "1" },
+                { id: "", no: 2, name: "333", stationName: "3", lng: "106.551121", lat: "29.561237", type: "1" },
+                { id: "", no: 2, name: "333", stationName: "3", lng: "106.552222", lat: "29.561237", type: "1" },
+                { id: "", no: 3, name: "444", stationName: "4", lng: "106.556048", lat: "29.561818", type: "1" }
+            ],
+            tmpLine: {
+                id: '001',
+                code: '002',
+                name: '线路一',
+                start: { id: "", no: 4, name: "000", stationName: "0", lng: "106.557197", lat: "29.55899", type: "0" },
+                terminus: { id: "", no: 5, name: "999", stationName: "9", lng: "106.558203", lat: "29.560954", type: "2" },
+                remarks: ''
+            },
+            seaKey: '',
+            lines: []
+        },
+        methods: {
+            click(index) {
+                alert(index);
+            },
+            //初始化地图
+            _getMapData() {
+                var map = new BMap.Map("lineMap");
+                map.enableScrollWheelZoom();
+                map.enableContinuousZoom();
+                map.centerAndZoom("重庆", 12);
+                map.setDefaultCursor("url('bird.cur')");
+                this.driving = new BMap.DrivingRoute(map, { renderOptions: { map: map, autoViewport: true } });
+                this.map = map;
+            },
+            //获取所有线路信息
+            getAllLines() {
+                var _this = this;
+                $.getJSON("/api/Line/getAllLines", function (data, err) {
+                    if (data) {
+                        console.log(data);
+                        _this.lines = data;
+                    } else {
+                        alert("获取站点数据失败");
+                    }
+                });
+            },
+            //获取所有站点
+            getAllSites() {
+                var _this = this;
+                $.getJSON("/api/Site/getAllSites", function (data, err) {
+                    if (data) {
+                        _this.sites = data;
+                    } else {
+                        alert("获取站点数据失败");
+                    }
+                });
+            },
+            //根据关键字查询线路
+            getLineByKey() {
+                var _this = this;
+                $.ajax({
+                    url: "/api/Line/getLineByKey",
+                    type: "get",
+                    data: { key: this.seaKey },
+                    dataType: "json",
+                    cache: false,
+                    async: false,
+                    success: function (data) {
+                        if (data) {
+                            _this.lines = data;
+                        } else {
+                            alert("查询线路失败");
+                        }
+                    },
+                    error: function () {
+                        alert("发生错误");
+                    }
+                });
+            },
+            //根据id查询线路详细信息
+            getLineById(id) {
+                var _this = this;
+                $.ajax({
+                    url: "/api/Line/getLineById/" + id,
+                    type: "get",
+                    dataType: "json",
+                    cache: false,
+                    async: false,
+                    success: function (data) {
+                        if (data) {
+                            _this.tmpLine.start = data.start;
+                            _this.tmpLine.terminus = data.terminus;
+                            _this.lineStations = data.lineStations;
+                        } else {
+                            alert("查询站点失败");
+                        }
+                    },
+                    error: function () {
+                        alert("发生错误");
+                    }
+                });
+            },
+            //在地图上显示线路
+            showLine() {
+                console.log(this.tmpLine);
+                if (this.tmpLine.start && this.tmpLine.terminus) {
+                    var star = new BMap.Point(this.tmpLine.start.lng, this.tmpLine.start.lat);
+                    var end = new BMap.Point(this.tmpLine.terminus.lng, this.tmpLine.terminus.lat);
+                    var waypoints = [];
+                    this.lineStations.forEach(function (el) {
+                        var p1 = new BMap.Point(el.lng, el.lat);
+                        waypoints.push(p1);
+                    });
+                    this.driving.search(star, end, { waypoints: waypoints });
+                }
+            },
+            //打开模态框并初始化数据
+            getLineToModel(flag, id) {
+                this.flag = flag;
+                if (flag === "add") {
+                    this.tmpLine = { code: "", name: "", remarks: "" };
+                    $('#lineModal').modal('show');
+                } else if (flag === "edit") {
+                    this.tmpLine = this.lines[id];
+                    $('#lineModal').modal('show');
+                } else if (flag === "show") {
+
+                    //数据初始化
+                    this.driving.search();
+                    this.tmpSite.type = -1;
+                    this.tmpSite.index = -1;
+
+                    this.tmpLine = this.lines[id];
+
+                    this.getLineById(this.tmpLine.id);
+                    this.lineModalTitle = this.tmpLine.name;
+                    this.showLine();
+                    $('#showLineModal').modal('show');
+                }
+            },
+            //删除线路
+            delLine(id) {
+                var _this = this;
+                $.ajax({
+                    url: "/api/Line/delLineById/" + id,
+                    type: "post",
+                    dataType: "json",
+                    success: function (data) {
+                        if (data) {
+                            alert("删除站点成功");
+                            _this.getAllLines();
+                        } else {
+                            alert("删除站点失败");
+                        }
+                    },
+                    error: function () {
+                        alert("发生错误");
+                    }
+                });
+            },
+            //添加/修改线路
+            lineForm() {
+                var _this = this;
+                var url = "";
+                if (this.flag === "add") {
+                    url = "/api/Line/addLine";
+                } else if (this.flag === "edit") {
+                    url = "/api/Line/editLine";
+                }
+                $.ajax({
+                    url: url,
+                    type: "post",
+                    data: _this.tmpLine,
+                    dataType: "json",
+                    success: function (data) {
+                        if (data) {
+                            if (_this.flag === "add") {
+                                alert("添加线路成功");
+                            } else if (_this.flag === "edit") {
+                                alert("修改线路成功");
+                            }
+                            $('#lineModal').modal('hide');
+                            _this.getAllLines();
+                        } else {
+                            alert("操作失败");
+                        }
+                    },
+                    error: function () {
+                        alert("发生错误");
+                    }
+                });
+            },
+            //打开编辑站点模态框
+            openEditSite(index) {
+                if (index === "start") {
+                    this.tmpSite = this.tmpLine.start;
+                } else if (index === "terminus") {
+                    this.tmpSite = this.tmpLine.terminus;
+                } else {
+                    this.tmpSite = this.lineStations[index];
+                }
+                for (var i = 0; i < this.sites.length; i++) {
+                    if (this.sites[i].lng === this.tmpSite.lng && this.sites[i].lat === this.tmpSite.lat) {
+                        this.tmpSite.index = i;
+                        break;
+                    }
+                }
+
+                $('#editSiteModal').modal('show');
+            },
+            //删除站点
+            delSite(id) {
+                var _this = this;
+                $.ajax({
+                    url: "/api/Line/delStationById/" + id,
+                    type: "post",
+                    dataType: "json",
+                    success: function (data) {
+                        if (data) {
+                            alert("删除站点成功");
+                            _this.getLineById(_this.tmpLine.id);
+                            _this.showLine();
+                        } else {
+                            alert("删除站点失败");
+                        }
+                    },
+                    error: function () {
+                        alert("发生错误");
+                    }
+                });
+            },
+            //新增站点
+            addSite() {
+                if (this.tmpSite.type === 0 && this.tmpLine.start != null) {
+                    alert("起点已存在");
+                    return;
+                } else if (this.tmpSite.type === 1 && this.tmpLine.terminus != null) {
+                    alert("终点已存在");
+                    return;
+                }
+                //if (this.tmpLine.start != null & this.tmpSite.no < this.tmpLine.start.no) {
+                //    alert("序号必须大于起点序号");
+                //    return ;
+                //}
+                //if (this.tmpLine.terminus != null & this.tmpSite.no > this.tmpLine.terminus.no) {
+                //    alert("序号必须小于终点序号");
+                //    return;
+                //}
+                /* for (var i = 0; this.lineStations.length; i++) {
+                     if (this.lineStations[i].no === this.tmpSite.no) {
+                         alert("序号重复");
+                         return;
+                     }
+                 }*/
+                var _this = this;
+
+                this.tmpSite.name = this.sites[this.tmpSite.index].name;
+                this.tmpSite.lng = this.sites[this.tmpSite.index].lng;
+                this.tmpSite.lat = this.sites[this.tmpSite.index].lat;
+                this.tmpSite.lineId = this.tmpLine.id;
+
+                $.ajax({
+                    url: "/api/Line/addStation",
+                    type: "post",
+                    data: this.tmpSite,
+                    dataType: "json",
+                    success: function (data) {
+                        if (data) {
+                            alert("添加站点成功");
+                            this.tmpSite = {};
+                            _this.getLineById(_this.tmpLine.id);
+                            _this.showLine();
+                        } else {
+                            alert("操作失败");
+                        }
+                    },
+                    error: function () {
+                        alert("发生错误");
+                    }
+                });
+            },
+            //修改站点
+            editSite() {
+                var _this = this;
+
+                this.tmpSite.name = this.sites[this.tmpSite.index].name;
+                this.tmpSite.lng = this.sites[this.tmpSite.index].lng;
+                this.tmpSite.lat = this.sites[this.tmpSite.index].lat;
+
+                $.ajax({
+                    url: "/api/Line/editStation",
+                    type: "post",
+                    data: this.tmpSite,
+                    dataType: "json",
+                    success: function (data) {
+                        if (data) {
+                            alert("修改站点成功");
+                            _this.getLineById(_this.tmpLine.id);
+                            _this.showLine();
+                            $('#editSiteModal').modal('hide');
+                        } else {
+                            alert("操作失败");
+                        }
+                    },
+                    error: function () {
+                        alert("发生错误");
+                    }
+                });
+            }
+        },
+        mounted() {
+            this._getMapData();
+            this.getAllLines();
+            this.getAllSites();
+        }
+    });
+</script>
